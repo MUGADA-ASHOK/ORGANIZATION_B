@@ -1,0 +1,7 @@
+com\depa\consumer\client\ProviderDataClient.class
+com\depa\consumer\controller\HealthController.class
+com\depa\consumer\dto\InitiateDataRequest.class
+com\depa\consumer\controller\ConsumerDataExchangeController.class
+com\depa\consumer\CollegeBConsumerApplication.class
+com\depa\consumer\client\ProviderDataClient$1.class
+com\depa\consumer\dto\DirectDataAccessRequest.class
