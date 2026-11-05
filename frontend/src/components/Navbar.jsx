@@ -55,3 +55,4 @@ export default function Navbar({ activeMode, setActiveMode }) {
     </header>
   );
 }
+
