@@ -29,13 +29,16 @@ public class ProviderDataClient {
      * Direct Data Access Call: College B connects directly to Provider (College A).
      * The Consent Manager is NOT in this path.
      */
-    public ResponseEntity<Map<String, Object>> fetchAuthorizedDataFromProvider(String grantId, String accessToken) {
+    public ResponseEntity<com.depa.consumer.dto.DataExchangeResponse> fetchAuthorizedDataFromProvider(String grantId, String accessToken, String consumerPublicKey) {
         log.info("Consumer directly requesting data from Provider at: {}/api/data/access/{}", providerBaseUrl, grantId);
 
-        return restClient.get()
+        com.depa.consumer.dto.DataExchangeRequest req = new com.depa.consumer.dto.DataExchangeRequest(consumerPublicKey);
+
+        return restClient.post()
                 .uri("/api/data/access/{grantId}", grantId)
                 .header("Authorization", "Bearer " + accessToken.trim())
+                .body(req)
                 .retrieve()
-                .toEntity(new ParameterizedTypeReference<Map<String, Object>>() {});
+                .toEntity(com.depa.consumer.dto.DataExchangeResponse.class);
     }
 }
