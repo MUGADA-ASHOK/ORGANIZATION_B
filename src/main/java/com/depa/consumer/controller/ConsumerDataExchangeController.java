@@ -12,9 +12,12 @@ import java.util.Map;
 public class ConsumerDataExchangeController {
 
     private final ProviderDataClient providerDataClient;
+    private final com.depa.consumer.client.ConsentManagerClient consentManagerClient;
 
-    public ConsumerDataExchangeController(ProviderDataClient providerDataClient) {
+    public ConsumerDataExchangeController(ProviderDataClient providerDataClient,
+                                          com.depa.consumer.client.ConsentManagerClient consentManagerClient) {
         this.providerDataClient = providerDataClient;
+        this.consentManagerClient = consentManagerClient;
     }
 
     /**
@@ -65,6 +68,16 @@ public class ConsumerDataExchangeController {
             com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
             Map<String, Object> clearData = mapper.readValue(decryptedJson, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
             
+            // Asynchronously report receipt of data to CM for audit trail
+            consentManagerClient.reportDataFlowEvent(
+                    request.getGrantId(),
+                    (String) clearData.get("STUDENT_ID"),
+                    "DATA_CONSUMED_BY_RECEIVER",
+                    "COLLEGE_B",
+                    new java.util.ArrayList<>(clearData.keySet()),
+                    "Consumer College B successfully decrypted and consumed authorized student records."
+            );
+
             return ResponseEntity.status(responseEntity.getStatusCode()).body(clearData);
             
         } catch (Exception e) {

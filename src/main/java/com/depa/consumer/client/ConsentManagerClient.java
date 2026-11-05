@@ -56,6 +56,31 @@ public class ConsentManagerClient {
         }
     }
 
+    /**
+     * Reports data flow events (e.g. DATA_CONSUMED_BY_RECEIVER) to Consent Manager for auditing.
+     */
+    public void reportDataFlowEvent(String grantId, String dataPrincipalId, String eventType,
+                                    String orgCode, java.util.List<String> fields, String details) {
+        try {
+            java.util.Map<String, Object> req = java.util.Map.of(
+                    "grantId", grantId != null ? grantId : "",
+                    "dataPrincipalId", dataPrincipalId != null ? dataPrincipalId : "",
+                    "eventType", eventType,
+                    "organizationCode", orgCode != null ? orgCode : "COLLEGE_B",
+                    "fields", fields != null ? fields : java.util.List.of(),
+                    "details", details != null ? details : ""
+            );
+            restClient.post()
+                    .uri("/api/audit/data-flow")
+                    .body(req)
+                    .retrieve()
+                    .toBodilessEntity();
+            log.info("Reported data flow event '{}' for GrantId='{}' to Consent Manager", eventType, grantId);
+        } catch (Exception e) {
+            log.warn("Non-blocking audit notice to CM failed: {}", e.getMessage());
+        }
+    }
+
     public RSAPublicKey getCmPublicKey() {
         if (cachedCmPublicKey != null) {
             return cachedCmPublicKey;
