@@ -35,3 +35,4 @@ public class CollegeBStudentController {
         return ResponseEntity.ok(student);
     }
 }
+
