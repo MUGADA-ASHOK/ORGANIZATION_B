@@ -34,7 +34,12 @@ public class ConsumerDataExchangeController {
             return ResponseEntity.status(401).body(Map.of("error", "Unauthorized", "message", "Invalid or missing X-API-KEY"));
         }
             
-        if (request.getGrantId() == null || request.getAccessToken() == null) {
+        String accessToken = request.getAccessToken();
+        if ((accessToken == null || accessToken.isBlank()) && request.getGrantId() != null) {
+            accessToken = consentManagerClient.fetchGrantToken(request.getGrantId());
+        }
+
+        if (request.getGrantId() == null || accessToken == null || accessToken.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Bad Request", "message", "grantId and accessToken are required"));
         }
 
@@ -46,7 +51,7 @@ public class ConsumerDataExchangeController {
             // Fetch Encrypted Data
             ResponseEntity<com.depa.consumer.dto.DataExchangeResponse> responseEntity = providerDataClient.fetchAuthorizedDataFromProvider(
                     request.getGrantId(),
-                    request.getAccessToken(),
+                    accessToken,
                     consumerPublicKeyBase64
             );
             

@@ -81,6 +81,35 @@ public class ConsentManagerClient {
         }
     }
 
+    /**
+     * Fallback helper to query Consent Manager and obtain the RS256 Access Token for a grant.
+     */
+    public String fetchGrantToken(String grantId) {
+        try {
+            java.util.Map<String, String> loginReq = java.util.Map.of(
+                    "email", "admin@collegeb.edu",
+                    "password", "OrgAdmin@123"
+            );
+            java.util.Map authRes = restClient.post()
+                    .uri("/api/auth/login")
+                    .body(loginReq)
+                    .retrieve()
+                    .body(java.util.Map.class);
+            String token = authRes != null ? (String) authRes.get("token") : null;
+            if (token != null) {
+                java.util.Map grantRes = restClient.get()
+                        .uri("/api/access-grants/{grantId}", grantId)
+                        .header("Authorization", "Bearer " + token)
+                        .retrieve()
+                        .body(java.util.Map.class);
+                return grantRes != null ? (String) grantRes.get("accessToken") : null;
+            }
+        } catch (Exception e) {
+            log.warn("Auto-fetch grant token failed for grant '{}': {}", grantId, e.getMessage());
+        }
+        return null;
+    }
+
     public RSAPublicKey getCmPublicKey() {
         if (cachedCmPublicKey != null) {
             return cachedCmPublicKey;

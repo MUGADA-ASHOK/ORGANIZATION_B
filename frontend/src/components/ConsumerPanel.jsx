@@ -132,11 +132,20 @@ export default function ConsumerPanel() {
     setFetchingGrantId(grant.grantId);
     setFetchError(null);
     try {
+      let accessToken = grant.accessToken;
+      if (!accessToken) {
+        const token = await getCmToken();
+        const gRes = await axios.get(`http://localhost:8095/api/access-grants/${grant.grantId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        accessToken = gRes.data?.accessToken;
+      }
+
       const res = await axios.post(
         'http://localhost:8082/api/consumer/fetch-direct-data',
         {
           grantId: grant.grantId,
-          accessToken: grant.accessToken
+          accessToken: accessToken
         },
         {
           headers: {

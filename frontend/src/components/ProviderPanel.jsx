@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ShieldCheck,
   Lock,
@@ -7,10 +7,15 @@ import {
   CheckCircle2,
   Cpu,
   KeyRound,
-  FileCheck2
+  FileCheck2,
+  RefreshCw,
+  Layers,
+  ArrowRight
 } from 'lucide-react';
 
 export default function ProviderPanel() {
+  const [activeCheck, setActiveCheck] = useState('active');
+
   return (
     <div className="space-y-8">
       {/* Banner */}
@@ -23,8 +28,60 @@ export default function ProviderPanel() {
             </span>
           </div>
           <p className="text-xs text-amber-200/80 max-w-2xl">
-            Demonstrating bilateral peer-to-peer reciprocity: College B operates as a trusted Data Provider when external academic institutions request authorized student records.
+            Demonstrating bilateral peer-to-peer reciprocity: College B operates as a trusted Data Provider when partner institutions request authorized student credentials.
           </p>
+        </div>
+
+        <div className="flex items-center space-x-2 px-3 py-1.5 bg-white/10 border border-white/20 rounded-xl text-xs font-semibold backdrop-blur-md self-start md:self-auto">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>Provider Listener Online</span>
+        </div>
+      </div>
+
+      {/* Bilateral Provider Gateway Status Card */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-4">
+        <div className="flex items-center space-x-3 border-b border-slate-100 pb-4">
+          <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
+            <Layers className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-slate-900">
+              Dual-Role Bilateral Reciprocity Engine
+            </h2>
+            <p className="text-xs text-slate-500">
+              College B can fulfill external verification requests dispatched by College A or third-party academic evaluators.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+            <span className="font-bold text-slate-800 text-xs block">Provider Dispatch Workflow</span>
+            <ol className="list-decimal list-inside space-y-1 text-slate-600 text-[11px] leading-relaxed">
+              <li>External consumer presents CM-signed Access Token at <code className="font-mono bg-white px-1 py-0.5 rounded">POST /api/data/access/:grantId</code>.</li>
+              <li>College B validates RSA-2048 signature using CM public key.</li>
+              <li>Queries Consent Manager <code className="font-mono bg-white px-1 py-0.5 rounded">/validate</code> to confirm real-time revocation status.</li>
+              <li>Performs Diffie-Hellman key exchange and transfers AES-128-GCM encrypted payload.</li>
+            </ol>
+          </div>
+
+          <div className="p-4 rounded-xl bg-orange-50/60 border border-orange-200 space-y-2">
+            <span className="font-bold text-orange-950 text-xs block">Bilateral Privacy Guarantees</span>
+            <ul className="space-y-1.5 text-orange-900 text-[11px]">
+              <li className="flex items-center space-x-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-orange-600 flex-shrink-0" />
+                <span>Zero unencrypted records leave College B without a verified token.</span>
+              </li>
+              <li className="flex items-center space-x-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-orange-600 flex-shrink-0" />
+                <span>Consent Manager never observes plain student transcripts.</span>
+              </li>
+              <li className="flex items-center space-x-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-orange-600 flex-shrink-0" />
+                <span>Sub-second revocation block enforced before every payload dispatch.</span>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
 
