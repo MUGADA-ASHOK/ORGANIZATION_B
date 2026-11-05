@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building, Shield, ArrowLeftRight } from 'lucide-react';
+import { Building, ArrowLeftRight, Users, ShieldCheck } from 'lucide-react';
 
 export default function Navbar({ activeMode, setActiveMode }) {
   return (
@@ -13,46 +13,57 @@ export default function Navbar({ activeMode, setActiveMode }) {
           <div>
             <div className="flex items-center space-x-2">
               <span className="font-extrabold text-lg tracking-tight text-slate-900">
-                COLLEGE B NODE
+                COLLEGE B PORTAL
               </span>
               <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-amber-50 text-amber-800 border border-amber-200">
                 Port 8082
               </span>
             </div>
             <p className="text-xs text-slate-500 hidden sm:block">
-              DEPA Federated Academic Participant — Dual Consumer &amp; Provider
+              DEPA Federated Academic Gateway — Inter-University Transfer &amp; Onboarding
             </p>
           </div>
         </div>
 
-        {/* Dual Mode Switcher */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+        {/* Navigation Switcher */}
+        <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
           <button
             onClick={() => setActiveMode('consumer')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${
               activeMode === 'consumer'
-                ? 'bg-white text-amber-700 shadow-xs'
+                ? 'bg-white text-amber-800 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <ArrowLeftRight className="w-3.5 h-3.5" />
-            <span>Consumer Mode</span>
+            <span>Academic Transfers (Consumer)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveMode('onboarding')}
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${
+              activeMode === 'onboarding'
+                ? 'bg-white text-indigo-700 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Student Onboarding</span>
           </button>
 
           <button
             onClick={() => setActiveMode('provider')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${
+            className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer flex items-center space-x-1.5 ${
               activeMode === 'provider'
                 ? 'bg-white text-orange-700 shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Shield className="w-3.5 h-3.5" />
-            <span>Provider Mode</span>
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Provider Node</span>
           </button>
         </div>
       </div>
     </header>
   );
 }
-

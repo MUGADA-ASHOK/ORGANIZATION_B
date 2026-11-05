@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
   Send,
   Download,
-  KeyRound,
   ShieldCheck,
   CheckCircle,
   AlertCircle,
@@ -11,7 +10,15 @@ import {
   Sparkles,
   Lock,
   ArrowRight,
-  Database
+  Database,
+  Building,
+  RefreshCw,
+  ExternalLink,
+  GraduationCap,
+  Award,
+  Eye,
+  CheckCircle2,
+  FileText
 } from 'lucide-react';
 
 export default function ConsumerPanel() {
@@ -19,17 +26,20 @@ export default function ConsumerPanel() {
   const [studentId, setStudentId] = useState('S1001');
   const [providerOrg, setProviderOrg] = useState('COLLEGE_A');
   const [purpose, setPurpose] = useState('Transfer Credit & Degree Eligibility Verification');
-  const [fields, setFields] = useState(['STUDENT_ID', 'NAME', 'EMAIL', 'MARKS', 'GPA', 'STATUS']);
+  const [fields, setFields] = useState(['STUDENT_ID', 'NAME', 'MARKS', 'GPA', 'STATUS']);
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestResult, setRequestResult] = useState(null);
   const [requestError, setRequestError] = useState(null);
 
-  // Step 2: Direct Data Access Form
-  const [grantId, setGrantId] = useState('');
-  const [accessToken, setAccessToken] = useState('');
-  const [fetchLoading, setFetchLoading] = useState(false);
-  const [dataResult, setDataResult] = useState(null);
-  const [dataError, setDataError] = useState(null);
+  // Active Grants & Requests
+  const [grants, setGrants] = useState([]);
+  const [outgoingRequests, setOutgoingRequests] = useState([]);
+  const [loadingLists, setLoadingLists] = useState(false);
+
+  // Verified Transferred Record display
+  const [fetchingGrantId, setFetchingGrantId] = useState(null);
+  const [activeRecord, setActiveRecord] = useState(null);
+  const [fetchError, setFetchError] = useState(null);
 
   const toggleField = (fieldName) => {
     if (fields.includes(fieldName)) {
@@ -39,6 +49,44 @@ export default function ConsumerPanel() {
     }
   };
 
+  // Helper to authenticate as College B with CM
+  const getCmToken = async () => {
+    const authRes = await axios.post('http://localhost:8095/api/auth/login', {
+      email: 'admin@collegeb.edu',
+      password: 'OrgAdmin@123'
+    });
+    return authRes.data.token;
+  };
+
+  // Fetch approved grants and outgoing requests from CM
+  const loadData = async () => {
+    setLoadingLists(true);
+    try {
+      const token = await getCmToken();
+      const [grantsRes, dreqRes] = await Promise.all([
+        axios.get('http://localhost:8095/api/access-grants', {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ data: [] })),
+        axios.get('http://localhost:8095/api/data-requests', {
+          headers: { Authorization: `Bearer ${token}` }
+        }).catch(() => ({ data: [] }))
+      ]);
+
+      setGrants(grantsRes.data || []);
+      setOutgoingRequests(dreqRes.data || []);
+    } catch (err) {
+      console.error('Error loading CM data:', err);
+    } finally {
+      setLoadingLists(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(loadData, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Submit Consent Request to Consent Manager
   const handleInitiateRequest = async (e) => {
     e.preventDefault();
@@ -47,18 +95,12 @@ export default function ConsumerPanel() {
     setRequestResult(null);
 
     try {
-      // 1. Authenticate as College B with CM to get auth token
-      const authRes = await axios.post('http://localhost:8095/api/auth/login', {
-        email: 'admin@collegeb.edu',
-        password: 'OrgAdmin@123'
-      });
-      const cmToken = authRes.data.token;
+      const cmToken = await getCmToken();
 
-      // 2. Submit Data Request
       const dreqRes = await axios.post(
         'http://localhost:8095/api/data-requests',
         {
-          dataPrincipalId: studentId.trim(),
+          dataPrincipalId: studentId.trim().toUpperCase(),
           providerOrganizationId: providerOrg.trim(),
           purpose: purpose.trim(),
           requestedFields: fields
@@ -72,6 +114,7 @@ export default function ConsumerPanel() {
       );
 
       setRequestResult(dreqRes.data);
+      await loadData();
     } catch (err) {
       console.error(err);
       setRequestError(
@@ -82,19 +125,16 @@ export default function ConsumerPanel() {
     }
   };
 
-  // Execute Direct P2P Fetch
-  const handleFetchData = async (e) => {
-    e.preventDefault();
-    setFetchLoading(true);
-    setDataError(null);
-    setDataResult(null);
-
+  // One-click direct P2P data fetch (automated cryptographic exchange)
+  const handleFetchRecords = async (grant) => {
+    setFetchingGrantId(grant.grantId);
+    setFetchError(null);
     try {
       const res = await axios.post(
         'http://localhost:8082/api/consumer/fetch-direct-data',
         {
-          grantId: grantId.trim(),
-          accessToken: accessToken.trim()
+          grantId: grant.grantId,
+          accessToken: grant.accessToken
         },
         {
           headers: {
@@ -104,42 +144,60 @@ export default function ConsumerPanel() {
         }
       );
 
-      setDataResult(res.data);
+      setActiveRecord({
+        data: res.data,
+        grantId: grant.grantId,
+        provider: grant.providerOrganizationCode || 'COLLEGE_A',
+        approvedFields: grant.approvedFields || Object.keys(res.data),
+        timestamp: new Date().toISOString()
+      });
     } catch (err) {
       console.error(err);
-      setDataError(
+      setFetchError(
         err.response?.data?.message || err.message || 'Direct P2P Data Fetch Failed'
       );
     } finally {
-      setFetchLoading(false);
+      setFetchingGrantId(null);
     }
   };
 
   return (
     <div className="space-y-8">
-      {/* Intro Banner */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-        <h2 className="text-xl font-black text-slate-900 mb-1">
-          College B acting as Data Consumer
-        </h2>
-        <p className="text-xs text-slate-500 leading-relaxed max-w-3xl">
-          Follow the strict DEPA flow: <strong>1)</strong> Request student consent via Consent Manager. 
-          The student (data principal) receives this request strictly in their Consent Manager dashboard (Port 5173). 
-          <strong> 2)</strong> Once the student approves, paste the issued Access Grant ID and Token below to fetch encrypted academic records directly from Provider College A.
-        </p>
+      {/* Top Banner */}
+      <div className="bg-gradient-to-r from-amber-700 via-amber-800 to-orange-900 rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div className="flex items-center space-x-3 mb-1">
+            <h1 className="text-2xl font-black tracking-tight">Academic Record Transfer &amp; Verification</h1>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-white/20 text-white border border-white/20">
+              Data Consumer
+            </span>
+          </div>
+          <p className="text-xs text-amber-100 max-w-2xl">
+            Request verified academic attributes directly from partner institutions. All transfers are governed by Consent Manager and protected by end-to-end Diffie-Hellman encryption.
+          </p>
+        </div>
+
+        <button
+          onClick={loadData}
+          disabled={loadingLists}
+          className="flex items-center space-x-2 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-xs font-semibold transition-all cursor-pointer backdrop-blur-md self-start md:self-auto"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loadingLists ? 'animate-spin' : ''}`} />
+          <span>Sync Requests</span>
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Step 1: Initiate Consent Request */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
-          <div className="flex items-center space-x-2.5 pb-3 border-b border-slate-100">
-            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-sm">
-              1
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Initiate Consent Request</h3>
-              <p className="text-xs text-slate-500">Request permission from Data Principal via Consent Manager</p>
-            </div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Left Column: Request Form (5 cols) */}
+        <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
+          <div className="border-b border-slate-100 pb-3">
+            <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+              <Send className="w-4 h-4 text-amber-600" />
+              <span>Initiate New Record Request</span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Dispatches a consent notice to the student's Consent Manager account.
+            </p>
           </div>
 
           {requestError && (
@@ -153,14 +211,13 @@ export default function ConsumerPanel() {
             <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs space-y-2">
               <div className="flex items-center space-x-2 font-bold text-emerald-900">
                 <CheckCircle className="w-4 h-4 text-emerald-600" />
-                <span>Consent Request Successfully Dispatched to CM!</span>
+                <span>Consent Request Successfully Sent!</span>
               </div>
               <p className="text-slate-600">
                 Request ID: <strong className="font-mono text-emerald-800">{requestResult.requestId || requestResult.id}</strong>
               </p>
-              <div className="p-2.5 bg-white/80 rounded-lg border border-emerald-200 text-slate-700">
-                <strong>Important DEPA Routing:</strong> This request has been queued in Consent Manager for student <strong>{studentId}</strong>. 
-                Please open the <strong>Consent Manager Portal (http://localhost:5173)</strong>, log in as <code>student1001@example.com</code>, and click <strong>Approve</strong>.
+              <div className="p-2.5 bg-white rounded-lg border border-emerald-200 text-slate-700">
+                The student (<strong>{studentId}</strong>) has been alerted in the <strong>Consent Manager Portal</strong> to authorize or customize the requested fields.
               </div>
             </div>
           )}
@@ -168,7 +225,7 @@ export default function ConsumerPanel() {
           <form onSubmit={handleInitiateRequest} className="space-y-4 text-xs">
             <div>
               <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Data Principal ID (Student ID)
+                Student ID (Data Principal)
               </label>
               <input
                 type="text"
@@ -183,19 +240,19 @@ export default function ConsumerPanel() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Provider Organization
+                  Source University
                 </label>
                 <input
                   type="text"
                   readOnly
-                  value="COLLEGE_A"
-                  className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl font-mono text-slate-600 font-bold"
+                  value="COLLEGE_A (College A)"
+                  className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl font-medium text-slate-600"
                 />
               </div>
 
               <div>
                 <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                  Requester Code (Consumer)
+                  Requesting Institution
                 </label>
                 <input
                   type="text"
@@ -208,7 +265,7 @@ export default function ConsumerPanel() {
 
             <div>
               <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Purpose of Data Access
+                Academic Purpose
               </label>
               <input
                 type="text"
@@ -221,7 +278,7 @@ export default function ConsumerPanel() {
 
             <div>
               <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Requested Academic Attributes
+                Requested Attributes
               </label>
               <div className="flex flex-wrap gap-2">
                 {['STUDENT_ID', 'NAME', 'EMAIL', 'MARKS', 'GPA', 'STATUS'].map((attr) => (
@@ -251,107 +308,182 @@ export default function ConsumerPanel() {
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  <span>Send Request to Consent Manager</span>
+                  <span>Send Consent Request</span>
                 </>
               )}
             </button>
           </form>
         </div>
 
-        {/* Step 2: Direct P2P Data Fetch */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
-          <div className="flex items-center space-x-2.5 pb-3 border-b border-slate-100">
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-sm">
-              2
+        {/* Right Column: Active Grants & Verified Records (7 cols) */}
+        <div className="lg:col-span-7 space-y-6">
+          {/* Approved Grants Table */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  <span>Approved Authorizations ({grants.length})</span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Authorizations approved by students. Click to retrieve encrypted records directly.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Direct P2P Data Access</h3>
-              <p className="text-xs text-slate-500">Consume encrypted data from Provider College A using Access Grant</p>
-            </div>
+
+            {fetchError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{fetchError}</span>
+              </div>
+            )}
+
+            {grants.length === 0 ? (
+              <div className="p-8 text-center text-slate-400">
+                <Clock className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                <p className="text-sm font-semibold text-slate-600">No Authorized Grants Yet</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Once the student reviews and approves your request in Consent Manager (Port 5173), it will automatically appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {grants.map((g) => (
+                  <div
+                    key={g.grantId}
+                    className="p-4 rounded-xl border border-slate-200 hover:border-emerald-300 bg-white hover:bg-emerald-50/20 transition-all space-y-3 shadow-2xs"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono text-xs font-bold text-slate-800">
+                          Grant: {g.grantId}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          {g.status}
+                        </span>
+                      </div>
+
+                      <div className="text-xs text-slate-500">
+                        Student: <strong className="text-indigo-700 font-mono">{g.dataPrincipalId}</strong>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-slate-600">
+                      <span className="font-semibold text-slate-700">Purpose: </span>"{g.purpose}"
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                        Approved Attributes by Student:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(g.approvedFields || []).map((f) => (
+                          <span
+                            key={f}
+                            className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                          >
+                            ✓ {f}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-[11px] text-slate-400">
+                        Valid Until: {new Date(g.expiresAt).toLocaleDateString()}
+                      </span>
+
+                      <button
+                        onClick={() => handleFetchRecords(g)}
+                        disabled={fetchingGrantId === g.grantId}
+                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        {fetchingGrantId === g.grantId ? (
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <>
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Fetch Student Records</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {dataError && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-start space-x-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-rose-600" />
-              <span>{dataError}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleFetchData} className="space-y-4 text-xs">
-            <div>
-              <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Access Grant ID
-              </label>
-              <input
-                type="text"
-                required
-                value={grantId}
-                onChange={(e) => setGrantId(e.target.value)}
-                placeholder="e.g. AG_XXXXXXXX or paste from Consent Manager"
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                Provider Endpoint
-              </label>
-              <input
-                type="text"
-                readOnly
-                value="http://localhost:8081 (Provider College A)"
-                className="w-full px-3 py-2 bg-slate-100 border border-slate-300 rounded-xl font-mono text-slate-500"
-              />
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 uppercase tracking-wider mb-1">
-                CM-Signed Access Token (RS256 JWT)
-              </label>
-              <textarea
-                required
-                rows={3}
-                value={accessToken}
-                onChange={(e) => setAccessToken(e.target.value)}
-                placeholder="Paste the JWT access token issued by Consent Manager..."
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none font-mono text-[11px]"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={fetchLoading}
-              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-md shadow-emerald-600/20 flex items-center justify-center space-x-2 transition-all cursor-pointer disabled:opacity-50"
-            >
-              {fetchLoading ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-              ) : (
-                <>
-                  <Download className="w-4 h-4" />
-                  <span>Execute Direct Data Fetch (DH + AES-128-GCM)</span>
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Decrypted Payload Result */}
-          {dataResult && (
-            <div className="mt-4 p-4 rounded-xl bg-slate-900 text-white space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <div className="flex items-center space-x-2 text-emerald-400 font-bold text-xs">
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Decrypted Student Attributes</span>
+          {/* Verified Academic Record Presentation Card (Clean, Professional Transcript) */}
+          {activeRecord && (
+            <div className="bg-white rounded-2xl border-2 border-emerald-500/40 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-emerald-800 to-teal-900 p-5 text-white flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
+                    <GraduationCap className="w-6 h-6 text-emerald-300" />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-base tracking-tight">Verified Academic Credential</h4>
+                    <span className="text-xs text-emerald-200">
+                      Originating Institution: College A University
+                    </span>
+                  </div>
                 </div>
-                <span className="text-[10px] font-mono text-slate-400">Diffie-Hellman Decrypted</span>
+
+                <div className="flex items-center space-x-2 text-xs font-semibold bg-emerald-700/60 px-3 py-1.5 rounded-xl border border-emerald-400/30">
+                  <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                  <span>DEPA Verified</span>
+                </div>
               </div>
 
-              <div className="bg-slate-950 p-3 rounded-lg overflow-x-auto text-[11px] font-mono text-emerald-300">
-                <pre>{JSON.stringify(dataResult, null, 2)}</pre>
-              </div>
+              {/* Body */}
+              <div className="p-6 space-y-5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pb-4 border-b border-slate-100 text-xs">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Student ID:</span>
+                    <span className="font-mono font-bold text-slate-900 text-sm">
+                      {activeRecord.data.STUDENT_ID || activeRecord.data.principalId || 'S1001'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Full Name:</span>
+                    <span className="font-bold text-slate-900 text-sm">
+                      {activeRecord.data.NAME || 'Ashok Mugada'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Status:</span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {activeRecord.data.STATUS || 'ENROLLED / ACTIVE'}
+                    </span>
+                  </div>
+                </div>
 
-              <p className="text-[10px] text-slate-400">
-                ✓ P2P Direct Transfer: College B received encrypted payload directly from College A, performed ephemeral Diffie-Hellman decryption, and notified Consent Manager audit trail.
-              </p>
+                {/* Academic Attributes Grid */}
+                <div>
+                  <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                    Verified Academic Record Attributes
+                  </h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {Object.entries(activeRecord.data).map(([key, val]) => (
+                      <div key={key} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                        <span className="font-mono text-xs font-semibold text-slate-600">{key}</span>
+                        <span className="font-bold text-xs text-slate-900">{String(val)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cryptographic Trust Footer */}
+                <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-400 gap-2">
+                  <div className="flex items-center space-x-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Transferred via P2P Ephemeral Diffie-Hellman + AES-128-GCM</span>
+                  </div>
+                  <span>Grant: {activeRecord.grantId}</span>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -359,4 +491,3 @@ export default function ConsumerPanel() {
     </div>
   );
 }
-
