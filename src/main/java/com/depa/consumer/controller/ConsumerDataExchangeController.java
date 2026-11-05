@@ -69,13 +69,14 @@ public class ConsumerDataExchangeController {
             Map<String, Object> clearData = mapper.readValue(decryptedJson, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
             
             // Asynchronously report receipt of data to CM for audit trail
+            String studentId = clearData.containsKey("STUDENT_ID") ? (String) clearData.get("STUDENT_ID") : (String) clearData.get("principalId");
             consentManagerClient.reportDataFlowEvent(
                     request.getGrantId(),
-                    (String) clearData.get("STUDENT_ID"),
+                    studentId,
                     "DATA_CONSUMED_BY_RECEIVER",
                     "COLLEGE_B",
                     new java.util.ArrayList<>(clearData.keySet()),
-                    "Consumer College B successfully decrypted and consumed authorized student records."
+                    "Consumer College B successfully decrypted, received, and accepted authorized student records."
             );
 
             return ResponseEntity.status(responseEntity.getStatusCode()).body(clearData);

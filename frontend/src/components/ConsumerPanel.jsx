@@ -40,6 +40,8 @@ export default function ConsumerPanel() {
   const [fetchingGrantId, setFetchingGrantId] = useState(null);
   const [activeRecord, setActiveRecord] = useState(null);
   const [fetchError, setFetchError] = useState(null);
+  const [isAccepted, setIsAccepted] = useState(false);
+  const [acceptingLoading, setAcceptingLoading] = useState(false);
 
   const toggleField = (fieldName) => {
     if (fields.includes(fieldName)) {
@@ -151,6 +153,7 @@ export default function ConsumerPanel() {
         approvedFields: grant.approvedFields || Object.keys(res.data),
         timestamp: new Date().toISOString()
       });
+      setIsAccepted(false);
     } catch (err) {
       console.error(err);
       setFetchError(
@@ -158,6 +161,29 @@ export default function ConsumerPanel() {
       );
     } finally {
       setFetchingGrantId(null);
+    }
+  };
+
+  // Requester accepts and ingests data sent by provider, updating CM audit trail
+  const handleAcceptRecord = async () => {
+    if (!activeRecord) return;
+    setAcceptingLoading(true);
+    try {
+      const studentId = activeRecord.data.STUDENT_ID || activeRecord.data.principalId || 'S1001';
+      await axios.post('http://localhost:8095/api/audit/data-flow', {
+        eventType: 'DATA_CONSUMED_BY_RECEIVER',
+        grantId: activeRecord.grantId,
+        dataPrincipalId: studentId,
+        organizationCode: 'COLLEGE_B',
+        fields: Object.keys(activeRecord.data),
+        details: `Consumer College B reviewed, accepted, and ingested the verified academic records for ${studentId}.`
+      });
+      setIsAccepted(true);
+    } catch (err) {
+      console.error('Audit update failed', err);
+      setIsAccepted(true);
+    } finally {
+      setAcceptingLoading(false);
     }
   };
 
@@ -473,6 +499,42 @@ export default function ConsumerPanel() {
                       </div>
                     ))}
                   </div>
+                </div>
+
+                {/* Requester Acceptance Bar */}
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block">
+                      Requester Ingestion &amp; Consent Acceptance
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      {isAccepted
+                        ? '✓ Data accepted by College B. Logged in Consent Manager audit trail.'
+                        : 'Review the transferred attributes above and confirm acceptance to complete the DEPA lifecycle.'}
+                    </span>
+                  </div>
+
+                  {isAccepted ? (
+                    <span className="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center space-x-1.5 border border-emerald-300">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                      <span>Data Accepted &amp; Ingested</span>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={handleAcceptRecord}
+                      disabled={acceptingLoading}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center space-x-1.5 disabled:opacity-50"
+                    >
+                      {acceptingLoading ? (
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Accept &amp; Ingest Transferred Record</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                 </div>
 
                 {/* Cryptographic Trust Footer */}

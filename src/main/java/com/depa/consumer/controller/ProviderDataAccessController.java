@@ -18,9 +18,12 @@ import java.util.Map;
 public class ProviderDataAccessController {
 
     private final AuthorizedDataService authorizedDataService;
+    private final com.depa.consumer.client.ConsentManagerClient consentManagerClient;
 
-    public ProviderDataAccessController(AuthorizedDataService authorizedDataService) {
+    public ProviderDataAccessController(AuthorizedDataService authorizedDataService,
+                                        com.depa.consumer.client.ConsentManagerClient consentManagerClient) {
         this.authorizedDataService = authorizedDataService;
+        this.consentManagerClient = consentManagerClient;
     }
 
     @PostMapping("/access/{grantId}")
@@ -56,6 +59,17 @@ public class ProviderDataAccessController {
             // Encrypt data
             String encryptedData = DiffieHellmanUtil.encrypt(plainTextData, sharedSecret);
             
+            // Asynchronously report data flow to CM for student audit and notification traceability
+            String studentId = data.containsKey("STUDENT_ID") ? (String) data.get("STUDENT_ID") : (String) data.get("principalId");
+            consentManagerClient.reportDataFlowEvent(
+                    grantId,
+                    studentId,
+                    "DATA_PREPARED_AND_SHARED",
+                    "COLLEGE_B",
+                    new java.util.ArrayList<>(data.keySet()),
+                    "Provider College B encrypted and released authorized fields for GrantId=" + grantId
+            );
+
             DataExchangeResponse response = new DataExchangeResponse();
             response.setProviderPublicKey(providerPublicKeyBase64);
             response.setEncryptedData(encryptedData);
