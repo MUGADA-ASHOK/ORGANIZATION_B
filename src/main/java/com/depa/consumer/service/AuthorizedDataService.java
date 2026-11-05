@@ -37,6 +37,12 @@ public class AuthorizedDataService {
             throw new SecurityException("Grant ID in URL does not match Grant ID in Access Token");
         }
 
+        // Strong Validation: An organization cannot request or consume student data belonging to itself
+        String requesterOrgCode = claims.getSubject();
+        if ("COLLEGE_B".equalsIgnoreCase(requesterOrgCode)) {
+            throw new SecurityException("Self-Consumption Prohibited: College B cannot request or consume student data from its own repository via external DEPA P2P exchange.");
+        }
+
         // 2. Real-Time Revocation & Lifecycle Verification with Consent Manager
         ConsentManagerClient.GrantValidationResult liveCheck = consentManagerClient.validateGrantLive(grantId);
         if (liveCheck == null || !liveCheck.isValid()) {

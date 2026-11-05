@@ -96,6 +96,13 @@ export default function ConsumerPanel() {
     setRequestError(null);
     setRequestResult(null);
 
+    // Strong Validation: Self-Request & Self-Consumption Prohibition
+    if (providerOrg.trim().toUpperCase() === 'COLLEGE_B') {
+      setRequestError('Self-Request Prohibited: College B cannot request or consume data from itself. Please choose a partner provider institution (e.g., COLLEGE_A).');
+      setRequestLoading(false);
+      return;
+    }
+
     try {
       const cmToken = await getCmToken();
 
