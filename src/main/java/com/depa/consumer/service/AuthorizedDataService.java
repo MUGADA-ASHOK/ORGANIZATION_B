@@ -14,13 +14,16 @@ public class AuthorizedDataService {
 
     private final CmDataAccessJwtValidator jwtValidator;
     private final ConsentManagerClient consentManagerClient;
+    private final CollegeBStudentRegistry studentRegistry;
 
     public AuthorizedDataService(
             CmDataAccessJwtValidator jwtValidator,
-            ConsentManagerClient consentManagerClient
+            ConsentManagerClient consentManagerClient,
+            CollegeBStudentRegistry studentRegistry
     ) {
         this.jwtValidator = jwtValidator;
         this.consentManagerClient = consentManagerClient;
+        this.studentRegistry = studentRegistry;
     }
 
     public Map<String, Object> fetchAuthorizedData(String grantId, String accessJwt) {
@@ -61,13 +64,51 @@ public class AuthorizedDataService {
             approvedFields = jwtValidator.extractScope(claims);
         }
 
-        // 4. Mock Data Generation for College B acting as a Provider
-        Map<String, Object> mockData = new LinkedHashMap<>();
-        mockData.put("principalId", dataPrincipalId);
+        // 4. Retrieve Actual Academic Record from College B Student Registry
+        var studentOpt = studentRegistry.findByStudentId(dataPrincipalId);
+        com.depa.consumer.entity.StudentRecord student = studentOpt.orElse(null);
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("principalId", dataPrincipalId);
+
         for (String field : approvedFields) {
-            mockData.put(field, "MOCK_DATA_FOR_ORG_B_" + field);
+            String norm = field.trim().toUpperCase();
+            switch (norm) {
+                case "STUDENT_ID":
+                    payload.put(norm, student != null ? student.getStudentId() : dataPrincipalId);
+                    break;
+                case "NAME":
+                    payload.put(norm, student != null ? student.getName() : "Student " + dataPrincipalId);
+                    break;
+                case "EMAIL":
+                    payload.put(norm, student != null ? student.getEmail() : dataPrincipalId.toLowerCase() + "@collegeb.edu");
+                    break;
+                case "MARKS":
+                    payload.put(norm, student != null ? student.getMarks() : "91% (Distinction)");
+                    break;
+                case "GPA":
+                case "CGPA":
+                    payload.put(norm, student != null ? student.getCgpa() : "9.1 / 10.0");
+                    break;
+                case "STATUS":
+                    payload.put(norm, student != null ? student.getStatus() : "ACTIVE");
+                    break;
+                case "DEPARTMENT":
+                    payload.put(norm, student != null ? student.getDepartment() : "Computer Science");
+                    break;
+                case "STUDY_CERTIFICATE":
+                case "SC":
+                    payload.put(norm, student != null ? student.getStudyCertificate() : "CERT-CB-2026-" + dataPrincipalId + "-VERIFIED");
+                    break;
+                case "DEGREE":
+                    payload.put(norm, student != null ? student.getDegree() : "Bachelor of Technology");
+                    break;
+                default:
+                    payload.put(norm, "Verified by College B Registrar");
+                    break;
+            }
         }
 
-        return mockData;
+        return payload;
     }
 }

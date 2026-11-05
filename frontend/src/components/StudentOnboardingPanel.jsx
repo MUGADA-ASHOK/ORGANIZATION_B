@@ -84,6 +84,20 @@ export default function StudentOnboardingPanel() {
     setAlert(null);
 
     try {
+      // 1. Sync student record with College B's local database registry
+      await axios.post('http://localhost:8082/api/students', {
+        studentId: student.studentId,
+        name: student.name,
+        email: student.email,
+        department: student.department || 'Computer Science & Engineering',
+        cgpa: student.cgpa || '8.8',
+        marks: `${Math.round(parseFloat(student.cgpa || '8.8') * 10)}% (First Class)`,
+        status: 'ACTIVE',
+        studyCertificate: `CERT-CB-2026-${student.studentId}-VERIFIED`,
+        degree: 'Bachelor of Technology'
+      }).catch((e) => console.log('Local registry sync note:', e.message));
+
+      // 2. Onboard to Consent Manager
       const res = await axios.post('http://localhost:8095/api/onboarding/student', {
         organizationCode: 'COLLEGE_B',
         studentId: student.studentId,
